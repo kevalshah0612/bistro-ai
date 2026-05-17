@@ -127,3 +127,7 @@ Mobile:
 | `apps/mobile/src/store/cartStore.ts` | Zustand cart state and cart action application |
 | `apps/mobile/src/store/chatStore.ts` | Zustand chat history/loading state |
 | `apps/mobile/src/api/client.ts` | Axios calls to menu, AI, and order endpoints |
+
+## Expo Go
+
+The mobile app uses Expo SDK 54, so install the current Expo Go app from the app store. If Expo asks to use a different Metro port, type `y` and scan the QR code it prints.
