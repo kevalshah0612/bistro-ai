@@ -7,7 +7,14 @@
   ],
   "scripts": {
     "dev:api": "npm run dev --workspace=apps/api",
-    "dev:mobile": "npm start --workspace=apps/mobile"
+    "dev:mobile": "npm start --workspace=apps/mobile",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:generate": "npm run db:generate --workspace=apps/api",
+    "db:push": "npm run db:push --workspace=apps/api",
+    "db:seed": "npm run db:seed --workspace=apps/api",
+    "db:studio": "npm run db:studio --workspace=apps/api",
+    "setup:db": "npm run db:generate && npm run db:push && npm run db:seed"
   },
   "devDependencies": {
     "metro": "0.81.5",

@@ -1,5 +1,5 @@
 import axios from "axios";
-import { CartAction, CartItem, MenuItem } from "../types";
+import { CartAction, CartItem, MenuItem, PlacedOrder } from "../types";
 
 const api = axios.create({
   baseURL: process.env.EXPO_PUBLIC_API_URL,
@@ -38,5 +38,14 @@ export const sendChatMessage = async (
     price: c.item.price,
   }));
   const res = await api.post("/ai/chat", { messages, cart: simplifiedCart });
+  return res.data;
+};
+
+export const placeOrder = async (cart: CartItem[]): Promise<PlacedOrder> => {
+  const items = cart.map((c) => ({
+    itemId: c.item.id,
+    quantity: c.quantity,
+  }));
+  const res = await api.post("/orders", { items });
   return res.data;
 };

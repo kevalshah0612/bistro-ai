@@ -26,3 +26,18 @@ export type ChatMessage = {
   timestamp: Date;
   actions?: CartAction[];
 };
+
+export type PlacedOrder = {
+  id: string;
+  status: string;
+  total: number;
+  createdAt: string;
+  items: Array<{
+    id: string;
+    itemId: string;
+    name: string;
+    quantity: number;
+    priceAtOrder: number;
+    category: string;
+  }>;
+};

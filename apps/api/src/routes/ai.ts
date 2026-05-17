@@ -1,11 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
-import menu from "../data/menu.json";
 import { parseOrderIntent, runChatTurn } from "../services/aiService";
-import { MenuItemSchema } from "../schemas/menu";
+import { getMenuItems } from "../services/menuService";
 
 const router = Router();
-const menuItems = MenuItemSchema.array().parse(menu);
 
 const parseRequestSchema = z.object({
   message: z.string().min(1).max(500),
@@ -42,6 +40,7 @@ router.post("/parse", async (req, res) => {
   try {
     const parsed = parseRequestSchema.parse(req.body);
     const message = parsed.message.trim().slice(0, 500);
+    const menuItems = await getMenuItems();
     const result = await parseOrderIntent(message, menuItems);
     logAiRequest("/api/ai/parse", startedAt, message.length);
     res.json(result);
@@ -65,6 +64,7 @@ router.post("/chat", async (req, res) => {
       content: message.content.trim().slice(0, 500),
     }));
     const lastUserMessage = [...messages].reverse().find((message) => message.role === "user");
+    const menuItems = await getMenuItems();
     const result = await runChatTurn(messages, parsed.cart, menuItems);
     logAiRequest("/api/ai/chat", startedAt, lastUserMessage?.content.length ?? 0);
     res.json(result);

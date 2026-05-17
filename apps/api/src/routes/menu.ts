@@ -1,17 +1,22 @@
 import { Router } from "express";
-import menu from "../data/menu.json";
-import { MenuItemSchema } from "../schemas/menu";
+import { getMenuItems, getMenuItemsByCategory } from "../services/menuService";
 
 const router = Router();
-const menuItems = MenuItemSchema.array().parse(menu);
 
-router.get("/", (_req, res) => {
-  res.json(menuItems);
+router.get("/", async (_req, res, next) => {
+  try {
+    res.json(await getMenuItems());
+  } catch (err) {
+    next(err);
+  }
 });
 
-router.get("/:category", (req, res) => {
-  const category = req.params.category.toLowerCase();
-  res.json(menuItems.filter((item) => item.category.toLowerCase() === category));
+router.get("/:category", async (req, res, next) => {
+  try {
+    res.json(await getMenuItemsByCategory(req.params.category));
+  } catch (err) {
+    next(err);
+  }
 });
 
 export default router;

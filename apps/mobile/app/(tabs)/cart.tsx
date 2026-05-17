@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
+import { useState } from "react";
 import {
   Alert,
   FlatList,
@@ -9,17 +10,32 @@ import {
   Text,
   View,
 } from "react-native";
+import { placeOrder } from "../../src/api/client";
 import { useCartStore } from "../../src/store/cartStore";
 import { CartItem } from "../../src/types";
 
 export default function CartScreen() {
   const router = useRouter();
+  const [placingOrder, setPlacingOrder] = useState(false);
   const { items, removeItem, updateQuantity, clearCart, totalItems, totalPrice } = useCartStore();
 
-  const handlePlaceOrder = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Alert.alert("Order Placed", "Thank you! Your order is on its way.");
-    clearCart();
+  const handlePlaceOrder = async () => {
+    if (placingOrder) return;
+
+    setPlacingOrder(true);
+    try {
+      const order = await placeOrder(items);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        "Order Placed",
+        `Thank you! Your order #${order.id.slice(-6).toUpperCase()} is on its way.`
+      );
+      clearCart();
+    } catch {
+      Alert.alert("Order Not Sent", "The kitchen could not receive your order. Please try again.");
+    } finally {
+      setPlacingOrder(false);
+    }
   };
 
   if (items.length === 0) {
@@ -105,8 +121,13 @@ export default function CartScreen() {
           <Text style={styles.summaryMain}>${totalPrice().toFixed(2)}</Text>
         </View>
         <Text style={styles.summarySubtext}>Tax and service charge not included</Text>
-        <Pressable accessibilityRole="button" style={styles.placeButton} onPress={handlePlaceOrder}>
-          <Text style={styles.placeText}>Place Order</Text>
+        <Pressable
+          accessibilityRole="button"
+          disabled={placingOrder}
+          style={[styles.placeButton, placingOrder && styles.placeButtonDisabled]}
+          onPress={handlePlaceOrder}
+        >
+          <Text style={styles.placeText}>{placingOrder ? "Sending Order..." : "Place Order"}</Text>
         </Pressable>
       </View>
     </View>
@@ -208,6 +229,9 @@ const styles = StyleSheet.create({
     height: 52,
     justifyContent: "center",
     marginTop: 14,
+  },
+  placeButtonDisabled: {
+    opacity: 0.55,
   },
   placeText: {
     color: "#111111",

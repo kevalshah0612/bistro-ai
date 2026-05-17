@@ -8,9 +8,15 @@ import helmet from "helmet";
 import morgan from "morgan";
 import aiRouter from "./routes/ai";
 import menuRouter from "./routes/menu";
+import ordersRouter from "./routes/orders";
 
 if (!process.env.ANTHROPIC_API_KEY) {
   console.error("ANTHROPIC_API_KEY is required. Add it to apps/api/.env before starting the API.");
+  process.exit(1);
+}
+
+if (!process.env.DATABASE_URL) {
+  console.error("DATABASE_URL is required. Copy apps/api/.env.example to apps/api/.env before starting the API.");
   process.exit(1);
 }
 
@@ -37,6 +43,7 @@ app.get("/health", (_req, res) => {
 
 app.use("/api/menu", menuRouter);
 app.use("/api/ai", aiRouter);
+app.use("/api/orders", ordersRouter);
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error(err.stack);
