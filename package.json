@@ -15,5 +15,12 @@
     "db:seed": "npm run db:seed --workspace=apps/api",
     "db:studio": "npm run db:studio --workspace=apps/api",
     "setup:db": "npm run db:generate && npm run db:push && npm run db:seed"
+  },
+  "dependencies": {
+    "react-native-css-interop": "0.1.22"
+  },
+  "devDependencies": {
+    "metro": "0.83.3",
+    "metro-runtime": "0.83.3"
   }
 }
