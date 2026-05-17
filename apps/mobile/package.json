@@ -15,7 +15,6 @@
     "@expo/vector-icons": "^15.1.1",
     "axios": "^1.7.9",
     "cross-env": "^10.1.0",
-    "cross-env": "^10.1.0",
     "expo": "~54.0.0",
     "expo-blur": "~15.0.8",
     "expo-haptics": "~15.0.8",
