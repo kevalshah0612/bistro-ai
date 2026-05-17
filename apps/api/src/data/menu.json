@@ -1,0 +1,182 @@
+[
+  {
+    "id": "truffle-mushroom-crostini",
+    "name": "Truffle Mushroom Crostini",
+    "description": "Toasted baguette with herbed ricotta, roasted mushrooms, and a touch of truffle oil.",
+    "price": 12,
+    "category": "Starters",
+    "tags": ["vegetarian", "popular"],
+    "available": true
+  },
+  {
+    "id": "spicy-shrimp-skewers",
+    "name": "Spicy Shrimp Skewers",
+    "description": "Charred shrimp brushed with chili garlic butter and finished with lemon.",
+    "price": 15.5,
+    "category": "Starters",
+    "tags": ["spicy", "gluten-free", "popular"],
+    "available": true
+  },
+  {
+    "id": "heirloom-tomato-salad",
+    "name": "Heirloom Tomato Salad",
+    "description": "Ripe tomatoes with basil, aged balsamic, olive oil, and flaky sea salt.",
+    "price": 11,
+    "category": "Starters",
+    "tags": ["vegetarian", "vegan", "gluten-free"],
+    "available": true
+  },
+  {
+    "id": "french-onion-soup",
+    "name": "French Onion Soup",
+    "description": "Slow-caramelized onions in rich beef broth with a bubbling gruyere crouton.",
+    "price": 10.5,
+    "category": "Starters",
+    "tags": ["popular"],
+    "available": true
+  },
+  {
+    "id": "crispy-calamari",
+    "name": "Crispy Calamari",
+    "description": "Lightly fried calamari with lemon aioli and pickled peppers.",
+    "price": 14,
+    "category": "Starters",
+    "tags": [],
+    "available": true
+  },
+  {
+    "id": "bistro-burger",
+    "name": "Bistro Burger",
+    "description": "Dry-aged beef patty with gruyere, caramelized onions, bistro sauce, and brioche.",
+    "price": 18.5,
+    "category": "Mains",
+    "tags": ["popular"],
+    "available": true
+  },
+  {
+    "id": "spicy-chicken-sandwich",
+    "name": "Spicy Chicken Sandwich",
+    "description": "Crispy chicken with chili honey, pickles, slaw, and toasted brioche.",
+    "price": 16.5,
+    "category": "Mains",
+    "tags": ["spicy", "popular"],
+    "available": true
+  },
+  {
+    "id": "pan-seared-salmon",
+    "name": "Pan-Seared Salmon",
+    "description": "Crisp-skinned salmon with lemon beurre blanc, asparagus, and herb potatoes.",
+    "price": 26,
+    "category": "Mains",
+    "tags": ["gluten-free"],
+    "available": true
+  },
+  {
+    "id": "wild-mushroom-risotto",
+    "name": "Wild Mushroom Risotto",
+    "description": "Arborio rice stirred with porcini, parmesan, thyme, and roasted mushrooms.",
+    "price": 22,
+    "category": "Mains",
+    "tags": ["vegetarian", "gluten-free"],
+    "available": true
+  },
+  {
+    "id": "steak-frites",
+    "name": "Steak Frites",
+    "description": "Seared hanger steak with peppercorn sauce and crisp hand-cut fries.",
+    "price": 28,
+    "category": "Mains",
+    "tags": ["popular"],
+    "available": true
+  },
+  {
+    "id": "roasted-garlic-fries",
+    "name": "Roasted Garlic Fries",
+    "description": "Hand-cut fries tossed with roasted garlic, parsley, and sea salt.",
+    "price": 7.5,
+    "category": "Sides",
+    "tags": ["vegetarian", "vegan"],
+    "available": true
+  },
+  {
+    "id": "charred-broccolini",
+    "name": "Charred Broccolini",
+    "description": "Tender broccolini with lemon zest, chili flakes, and toasted almonds.",
+    "price": 9,
+    "category": "Sides",
+    "tags": ["spicy", "vegetarian", "vegan", "gluten-free"],
+    "available": true
+  },
+  {
+    "id": "whipped-potatoes",
+    "name": "Whipped Potatoes",
+    "description": "Silky Yukon gold potatoes with cultured butter and chives.",
+    "price": 8,
+    "category": "Sides",
+    "tags": ["vegetarian", "gluten-free"],
+    "available": true
+  },
+  {
+    "id": "simple-green-salad",
+    "name": "Simple Green Salad",
+    "description": "Mixed greens with cucumber, herbs, and champagne vinaigrette.",
+    "price": 8.5,
+    "category": "Sides",
+    "tags": ["vegetarian", "vegan", "gluten-free"],
+    "available": true
+  },
+  {
+    "id": "mac-and-cheese-gratin",
+    "name": "Mac and Cheese Gratin",
+    "description": "Creamy three-cheese pasta baked with a crisp parmesan crumb.",
+    "price": 10,
+    "category": "Sides",
+    "tags": ["vegetarian"],
+    "available": true
+  },
+  {
+    "id": "still-water",
+    "name": "Still Water",
+    "description": "Chilled bottled still water.",
+    "price": 3,
+    "category": "Drinks",
+    "tags": ["vegan", "gluten-free"],
+    "available": true
+  },
+  {
+    "id": "sparkling-water",
+    "name": "Sparkling Water",
+    "description": "Crisp mineral sparkling water served chilled.",
+    "price": 4,
+    "category": "Drinks",
+    "tags": ["vegan", "gluten-free"],
+    "available": true
+  },
+  {
+    "id": "lavender-lemonade",
+    "name": "Lavender Lemonade",
+    "description": "Fresh lemonade balanced with lavender syrup and citrus peel.",
+    "price": 6,
+    "category": "Drinks",
+    "tags": ["vegetarian", "vegan", "popular"],
+    "available": true
+  },
+  {
+    "id": "espresso-tonic",
+    "name": "Espresso Tonic",
+    "description": "Bright espresso poured over tonic water with an orange twist.",
+    "price": 6.5,
+    "category": "Drinks",
+    "tags": ["vegetarian", "vegan"],
+    "available": true
+  },
+  {
+    "id": "iced-tea",
+    "name": "Iced Tea",
+    "description": "House-brewed black tea served over ice with lemon.",
+    "price": 4.5,
+    "category": "Drinks",
+    "tags": ["vegetarian", "vegan", "gluten-free"],
+    "available": true
+  }
+]

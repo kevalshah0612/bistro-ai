@@ -1,0 +1,12 @@
+{
+  "name": "intelligent-bistro",
+  "private": true,
+  "workspaces": [
+    "apps/api",
+    "apps/mobile"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace=apps/api",
+    "dev:mobile": "npm start --workspace=apps/mobile"
+  }
+}
