@@ -1,6 +1,8 @@
 import { CartAction, CartActionSchema, MenuItem } from "../schemas/menu";
+import { sanitizeCartActions } from "./cartValidation";
 import {
   buildChatCacheKey,
+  buildMealPlanCacheKey,
   buildParseCacheKey,
   getCached,
   menuFingerprint,
@@ -99,15 +101,40 @@ function sanitizeMessage(value: string) {
   return value.trim().slice(0, 500);
 }
 
-function parseCartActionsFromReply(replyText: string): CartAction[] {
+function parseCartActionsFromReply(replyText: string, menuItems: MenuItem[]): CartAction[] {
   const actionMatch = replyText.match(/<cart_action>([\s\S]*?)<\/cart_action>/);
   if (!actionMatch?.[1]) return [];
-  const parsed = JSON.parse(actionMatch[1]) as { actions?: CartAction[] };
-  return CartActionSchema.array().parse(parsed.actions ?? []);
+  try {
+    const parsed = JSON.parse(actionMatch[1]) as { actions?: unknown[] };
+    const raw = CartActionSchema.array().parse(parsed.actions ?? []);
+    return sanitizeCartActions(raw, menuItems);
+  } catch {
+    return [];
+  }
 }
 
 function cleanChatReply(replyText: string) {
   return replyText.replace(/<cart_action>[\s\S]*?<\/cart_action>/, "").trim();
+}
+
+function formatDietaryPreferencesBlock(dietaryPreferences?: string) {
+  const trimmed = dietaryPreferences?.trim();
+  if (!trimmed) return "";
+  return `
+Customer dietary preferences (always honor; never suggest items that conflict with these):
+${trimmed}
+`;
+}
+
+type SimplifiedCartLine = {
+  itemId: string;
+  name: string;
+  quantity: number;
+  price: number;
+};
+
+function cartSubtotal(cart: SimplifiedCartLine[]) {
+  return Math.round(cart.reduce((sum, line) => sum + line.price * line.quantity, 0) * 100) / 100;
 }
 
 async function callParseOrderIntent(
@@ -145,8 +172,9 @@ ${JSON.stringify(menuItems, null, 2)}`;
 
   try {
     const parsed = JSON.parse(rawText) as { actions: CartAction[]; reply: string };
+    const raw = CartActionSchema.array().parse(parsed.actions ?? []);
     return {
-      actions: CartActionSchema.array().parse(parsed.actions ?? []),
+      actions: sanitizeCartActions(raw, menuItems),
       reply: String(parsed.reply ?? ""),
     };
   } catch (error) {
@@ -160,13 +188,15 @@ ${JSON.stringify(menuItems, null, 2)}`;
 
 async function callChatTurn(
   messages: Array<{ role: "user" | "assistant"; content: string }>,
-  cart: Array<{ itemId: string; name: string; quantity: number; price: number }>,
-  menuItems: MenuItem[]
+  cart: SimplifiedCartLine[],
+  menuItems: MenuItem[],
+  dietaryPreferences?: string
 ): Promise<ChatTurnResult> {
   const system = `You are an AI waiter at The Intelligent Bistro, an upscale bistro restaurant.
 You are warm, knowledgeable about the menu, and helpful.
 
 You have access to the customer's current cart and the full menu.
+${formatDietaryPreferencesBlock(dietaryPreferences)}
 
 When you want to make changes to the cart, you MUST include a <cart_action> JSON block
 in your reply. Example:
@@ -194,7 +224,46 @@ ${JSON.stringify(menuItems, null, 2)}`;
     content: sanitizeMessage(message.content),
   }));
   const replyText = await callAnthropic(system, safeMessages);
-  const actions = parseCartActionsFromReply(replyText);
+  const actions = parseCartActionsFromReply(replyText, menuItems);
+  return { reply: cleanChatReply(replyText), actions };
+}
+
+async function callMealPlan(
+  budget: number,
+  cart: SimplifiedCartLine[],
+  menuItems: MenuItem[],
+  dietaryPreferences?: string
+): Promise<ChatTurnResult> {
+  const spent = cartSubtotal(cart);
+  const remaining = Math.max(0, Math.round((budget - spent) * 100) / 100);
+
+  const system = `You are a meal-planning assistant at The Intelligent Bistro.
+Pick a small, balanced combination of menu items (typically 2–4 dishes) that fits the customer's budget.
+${formatDietaryPreferencesBlock(dietaryPreferences)}
+When you add items to the cart, you MUST include a <cart_action> JSON block:
+<cart_action>{"actions":[{"type":"ADD","itemId":"item-id","quantity":1}]}</cart_action>
+
+Rules:
+- Use only items from the menu below. Use exact itemId values.
+- Budget is based on menu prices only (no tax). The customer already has $${spent.toFixed(2)} in their cart.
+- New items you add must keep the total cart at or under $${budget.toFixed(2)} (about $${remaining.toFixed(2)} left to spend).
+- Prefer a sensible meal: e.g. main + side or drink, or starter + main — not five duplicates.
+- Only ADD items not already in the cart (or ADD more quantity only if it still fits the budget).
+- In your reply, briefly list what you chose and the estimated cart subtotal. Be warm and concise.
+
+Current cart:
+${JSON.stringify(cart, null, 2)}
+
+Full menu:
+${JSON.stringify(menuItems, null, 2)}`;
+
+  const userPrompt =
+    remaining <= 0
+      ? `My cart is already at $${spent.toFixed(2)}. Suggest a swap or smaller adjustment to stay near $${budget.toFixed(2)} if possible, or explain kindly that the budget is full.`
+      : `Build me a satisfying meal. I have about $${remaining.toFixed(2)} left within my $${budget.toFixed(2)} budget.`;
+
+  const replyText = await callAnthropic(system, [{ role: "user", content: userPrompt }]);
+  const actions = parseCartActionsFromReply(replyText, menuItems);
   return { reply: cleanChatReply(replyText), actions };
 }
 
@@ -228,11 +297,12 @@ export async function parseOrderIntent(
 
 export async function runChatTurn(
   messages: Array<{ role: "user" | "assistant"; content: string }>,
-  cart: Array<{ itemId: string; name: string; quantity: number; price: number }>,
+  cart: SimplifiedCartLine[],
   menuItems: MenuItem[],
-  options?: { skipCache?: boolean }
+  options?: { skipCache?: boolean; dietaryPreferences?: string }
 ): Promise<ChatTurnResult & { cacheHit: boolean }> {
-  const cacheKey = buildChatCacheKey(messages, cart, menuItems);
+  const dietary = options?.dietaryPreferences ?? "";
+  const cacheKey = buildChatCacheKey(messages, cart, menuItems, dietary);
   if (!options?.skipCache) {
     const cached = getCached<ChatTurnResult>(cacheKey);
     if (cached) {
@@ -242,13 +312,43 @@ export async function runChatTurn(
   }
 
   try {
-    const result = await callChatTurn(messages, cart, menuItems);
+    const result = await callChatTurn(messages, cart, menuItems, dietary);
     setCached(cacheKey, result);
     return { ...result, cacheHit: false };
   } catch (error) {
     const stale = getCached<ChatTurnResult>(cacheKey, { allowStale: true });
     if (stale) {
       console.warn("[ai-cache] STALE chat fallback after API error");
+      return { ...stale, cacheHit: true };
+    }
+    throw error;
+  }
+}
+
+export async function runMealPlan(
+  budget: number,
+  cart: SimplifiedCartLine[],
+  menuItems: MenuItem[],
+  options?: { skipCache?: boolean; dietaryPreferences?: string }
+): Promise<ChatTurnResult & { cacheHit: boolean }> {
+  const dietary = options?.dietaryPreferences ?? "";
+  const cacheKey = buildMealPlanCacheKey(budget, cart, menuItems, dietary);
+  if (!options?.skipCache) {
+    const cached = getCached<ChatTurnResult>(cacheKey);
+    if (cached) {
+      console.log("[ai-cache] HIT meal-plan", cacheKey.slice(0, 12));
+      return { ...cached, cacheHit: true };
+    }
+  }
+
+  try {
+    const result = await callMealPlan(budget, cart, menuItems, dietary);
+    setCached(cacheKey, result);
+    return { ...result, cacheHit: false };
+  } catch (error) {
+    const stale = getCached<ChatTurnResult>(cacheKey, { allowStale: true });
+    if (stale) {
+      console.warn("[ai-cache] STALE meal-plan fallback after API error");
       return { ...stale, cacheHit: true };
     }
     throw error;

@@ -3,6 +3,7 @@ import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Animated,
   FlatList,
   InteractionManager,
@@ -19,11 +20,14 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Screen } from "../../src/components/Screen";
-import { fetchMenu, sendChatMessage } from "../../src/api/client";
+import { buildMealPlan, sendChatMessage } from "../../src/api/client";
+import { useSyncCartOnFocus } from "../../src/hooks/useSyncCartOnFocus";
 import { useCartStore } from "../../src/store/cartStore";
+import { useMenuStore } from "../../src/store/menuStore";
 import { useChatStore } from "../../src/store/chatStore";
+import { DIETARY_PRESETS, usePreferencesStore } from "../../src/store/preferencesStore";
 import { CartAction, ChatMessage, MenuItem } from "../../src/types";
-import { CHAT_SUGGESTIONS, formatMoney, getPopularItems } from "../../src/utils/menu";
+import { CHAT_SUGGESTIONS, formatMoney, getPopularItems, MEAL_BUDGET_OPTIONS } from "../../src/utils/menu";
 
 const TAB_BAR_BASE = 52;
 
@@ -79,13 +83,22 @@ export default function ChatScreen() {
   const inputRef = useRef<TextInput>(null);
   const { width } = useWindowDimensions();
   const { messages, isLoading, addMessage, setLoading } = useChatStore();
-  const getTotalItems = useCartStore((state) => state.totalItems);
-  const getTotalPrice = useCartStore((state) => state.totalPrice);
+  const { notes, setNotes, togglePreset, clearNotes } = usePreferencesStore();
+  const cartItemCount = useCartStore((state) =>
+    state.items.reduce((sum, line) => sum + line.quantity, 0)
+  );
+  const cartTotal = useCartStore((state) =>
+    Math.round(
+      state.items.reduce((sum, line) => sum + line.item.price * line.quantity, 0) * 100
+    ) / 100
+  );
   const applyActions = useCartStore((state) => state.applyActions);
 
   const tabBarOffset = TAB_BAR_BASE + Math.max(insets.bottom, Platform.OS === "android" ? 12 : 8);
   const keyboardVerticalOffset = Platform.OS === "ios" ? tabBarOffset : 0;
   const popularItems = getPopularItems(menu);
+
+  useSyncCartOnFocus();
 
   const scrollToBottom = useCallback((animated = true) => {
     InteractionManager.runAfterInteractions(() => {
@@ -97,7 +110,7 @@ export default function ChatScreen() {
 
   const loadMenu = useCallback(async () => {
     try {
-      const items = await fetchMenu();
+      const items = await useMenuStore.getState().ensureLoaded();
       menuRef.current = items;
       setMenu(items);
     } catch {
@@ -112,7 +125,7 @@ export default function ChatScreen() {
       addMessage({
         role: "assistant",
         content:
-          "Hi! I'm your AI waiter. Tap a suggestion below, pick a popular dish, or tell me what you'd like — I'll update your cart instantly. After you place an order from the Cart tab, we start fresh here.",
+          "Hi! I'm your AI waiter. Set dietary preferences above, try Meal planner chips, or tell me what you'd like — I'll update your cart instantly.",
       });
     }
   }, [addMessage, loadMenu, messages.length]);
@@ -134,8 +147,13 @@ export default function ChatScreen() {
     if (menuRef.current.length === 0) {
       await loadMenu();
     }
-    applyActions(actions, menuRef.current);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const result = applyActions(actions, menuRef.current);
+    if (result.warnings.length > 0) {
+      Alert.alert("Some cart updates were skipped", result.warnings.join("\n"));
+    }
+    if (result.applied > 0) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
   }
 
   async function sendMessage(text: string) {
@@ -152,7 +170,8 @@ export default function ChatScreen() {
       const history = messages.map((m) => ({ role: m.role, content: m.content }));
       history.push({ role: "user" as const, content: trimmed });
       const currentCart = useCartStore.getState().items;
-      const result = await sendChatMessage(history, currentCart);
+      const dietaryPreferences = usePreferencesStore.getState().notes;
+      const result = await sendChatMessage(history, currentCart, dietaryPreferences);
       await applyActionsWithMenuRetry(result.actions);
       addMessage({
         role: "assistant",
@@ -164,6 +183,36 @@ export default function ChatScreen() {
       addMessage({
         role: "assistant",
         content: "Sorry, I couldn't reach the kitchen right now. Please try again.",
+      });
+    } finally {
+      setLoading(false);
+      scrollToBottom(true);
+    }
+  }
+
+  async function requestMealPlan(budget: number) {
+    if (isLoading) return;
+
+    const userLine = `Build me a meal under ${formatMoney(budget)}`;
+    addMessage({ role: "user", content: userLine });
+    setLoading(true);
+    scrollToBottom(true);
+
+    try {
+      const currentCart = useCartStore.getState().items;
+      const dietaryPreferences = usePreferencesStore.getState().notes;
+      const result = await buildMealPlan(budget, currentCart, dietaryPreferences);
+      await applyActionsWithMenuRetry(result.actions);
+      addMessage({
+        role: "assistant",
+        content: result.reply,
+        actions: result.actions,
+        cached: result.cached,
+      });
+    } catch {
+      addMessage({
+        role: "assistant",
+        content: "Sorry, I couldn't plan a meal right now. Please try again.",
       });
     } finally {
       setLoading(false);
@@ -219,7 +268,62 @@ export default function ChatScreen() {
             <Text style={styles.title}>AI Waiter</Text>
           </View>
           <Text style={styles.subtitle}>Ask in plain English — I'll update your cart</Text>
-          {getTotalItems() > 0 ? (
+
+          <Text style={styles.prefsLabel}>Dietary preferences</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.prefsChipRow}
+          >
+            {DIETARY_PRESETS.map((preset) => {
+              const active = notes
+                .split(",")
+                .map((part) => part.trim().toLowerCase())
+                .includes(preset.toLowerCase());
+              return (
+                <Pressable
+                  accessibilityRole="button"
+                  key={preset}
+                  style={[styles.prefChip, active && styles.prefChipActive]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    togglePreset(preset);
+                  }}
+                >
+                  <Text style={[styles.prefChipText, active && styles.prefChipTextActive]}>
+                    {preset}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+          <TextInput
+            placeholder="e.g. no cilantro, mild spice only"
+            placeholderTextColor="#555555"
+            style={styles.prefsInput}
+            value={notes}
+            onChangeText={setNotes}
+            maxLength={200}
+          />
+          {notes.length > 0 ? (
+            <View style={styles.prefsBanner}>
+              <Ionicons name="leaf" size={14} color="#52C78A" />
+              <Text style={styles.prefsBannerText} numberOfLines={2}>
+                Honoring: {notes}
+              </Text>
+              <Pressable
+                accessibilityLabel="Clear dietary preferences"
+                accessibilityRole="button"
+                hitSlop={8}
+                onPress={clearNotes}
+              >
+                <Ionicons name="close-circle" size={18} color="#888888" />
+              </Pressable>
+            </View>
+          ) : null}
+
+          {cartItemCount > 0 ? (
             <Pressable
               accessibilityRole="button"
               style={styles.cartBanner}
@@ -227,7 +331,7 @@ export default function ChatScreen() {
             >
               <Ionicons name="cart" size={18} color="#F5A623" />
               <Text style={styles.cartBannerText}>
-                {getTotalItems()} item{getTotalItems() === 1 ? "" : "s"} in cart · {formatMoney(getTotalPrice())}
+                {cartItemCount} item{cartItemCount === 1 ? "" : "s"} in cart · {formatMoney(cartTotal)}
               </Text>
               <Ionicons name="chevron-forward" size={16} color="#888888" />
             </Pressable>
@@ -266,6 +370,29 @@ export default function ChatScreen() {
                 }}
               >
                 <Text style={styles.chipText}>{suggestion}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+
+          <Text style={[styles.composerLabel, styles.popularLabel]}>Meal planner</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.chipRow}
+          >
+            {MEAL_BUDGET_OPTIONS.map((budget) => (
+              <Pressable
+                accessibilityRole="button"
+                key={budget}
+                style={styles.mealChip}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  void requestMealPlan(budget);
+                }}
+              >
+                <Ionicons name="sparkles" size={14} color="#F5A623" />
+                <Text style={styles.mealChipText}>Under {formatMoney(budget)}</Text>
               </Pressable>
             ))}
           </ScrollView>
@@ -506,8 +633,84 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginTop: 2,
   },
+  mealChip: {
+    alignItems: "center",
+    backgroundColor: "#1e2a1a",
+    borderColor: "#52C78A",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 6,
+    marginRight: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  mealChipText: {
+    color: "#52C78A",
+    fontSize: 13,
+    fontWeight: "700",
+  },
   popularLabel: {
     marginTop: 10,
+  },
+  prefChip: {
+    backgroundColor: "#2a2a2a",
+    borderColor: "#3a3a3a",
+    borderRadius: 999,
+    borderWidth: 1,
+    marginRight: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  prefChipActive: {
+    backgroundColor: "#1a2e22",
+    borderColor: "#52C78A",
+  },
+  prefChipText: {
+    color: "#888888",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  prefChipTextActive: {
+    color: "#52C78A",
+  },
+  prefsBanner: {
+    alignItems: "center",
+    backgroundColor: "#1a2e22",
+    borderRadius: 8,
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  prefsBannerText: {
+    color: "#52C78A",
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  prefsChipRow: {
+    paddingBottom: 4,
+    paddingRight: 8,
+  },
+  prefsInput: {
+    backgroundColor: "#2a2a2a",
+    borderRadius: 10,
+    color: "#F0EDE8",
+    fontSize: 13,
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  prefsLabel: {
+    color: "#666666",
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+    marginLeft: 0,
+    marginTop: 12,
+    textTransform: "uppercase",
   },
   sendButton: {
     alignItems: "center",

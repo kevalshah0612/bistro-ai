@@ -36,6 +36,10 @@ router.post("/", async (req, res) => {
       return;
     }
     const message = err instanceof Error ? err.message : "Could not create order";
+    if (message.includes("unavailable") || message.includes("Invalid") || message.includes("Cart must")) {
+      res.status(400).json({ error: "Invalid order", message });
+      return;
+    }
     res.status(500).json({ error: "Order service error", message });
   }
 });

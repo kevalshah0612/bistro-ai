@@ -14,8 +14,11 @@ import {
 import { Screen } from "../../src/components/Screen";
 import { OrderStatusBadge } from "../../src/components/OrderStatusBadge";
 import { placeOrder } from "../../src/api/client";
+import { useSyncCartOnFocus } from "../../src/hooks/useSyncCartOnFocus";
 import { useCartStore } from "../../src/store/cartStore";
+import { useMenuStore } from "../../src/store/menuStore";
 import { useOrdersStore } from "../../src/store/ordersStore";
+import { validateCartForCheckout } from "../../src/utils/cartValidation";
 import { CartItem, PlacedOrder } from "../../src/types";
 import { formatMoney } from "../../src/utils/menu";
 import { resetOrderingSession } from "../../src/utils/orderingSession";
@@ -69,6 +72,8 @@ export default function CartScreen() {
   const { orders, isLoading: ordersLoading, error: ordersError, fetchOrders, prependOrder } =
     useOrdersStore();
 
+  useSyncCartOnFocus();
+
   const subtotal = totalPrice();
   const tax = Math.round(subtotal * TAX_RATE * 100) / 100;
   const estimatedTotal = Math.round((subtotal + tax) * 100) / 100;
@@ -85,7 +90,18 @@ export default function CartScreen() {
 
     setPlacingOrder(true);
     try {
-      const order = await placeOrder(items);
+      const menu = await useMenuStore.getState().ensureLoaded();
+      const validation = validateCartForCheckout(items, menu);
+      if (!validation.ok) {
+        useCartStore.getState().syncWithMenu(menu);
+        Alert.alert("Cannot place order", validation.message);
+        return;
+      }
+      if (validation.removed.length > 0 || validation.priceUpdated.length > 0) {
+        useCartStore.getState().syncWithMenu(menu);
+      }
+
+      const order = await placeOrder(validation.items, menu);
       prependOrder(order);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const lines = order.items.map((i) => `• ${i.quantity}× ${i.name}`).join("\n");
@@ -95,8 +111,10 @@ export default function CartScreen() {
         [{ text: "OK" }]
       );
       resetOrderingSession();
-    } catch {
-      Alert.alert("Order not sent", "The kitchen could not receive your order. Please try again.");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "The kitchen could not receive your order.";
+      Alert.alert("Order not sent", message);
     } finally {
       setPlacingOrder(false);
     }
@@ -129,7 +147,10 @@ export default function CartScreen() {
               style={styles.stepButton}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                updateQuantity(line.item.id, line.quantity - 1);
+                const result = updateQuantity(line.item.id, line.quantity - 1);
+                if (!result.ok && result.message) {
+                  Alert.alert("Cannot update", result.message);
+                }
               }}
             >
               <Ionicons name="remove" size={18} color="#111111" />
@@ -141,7 +162,10 @@ export default function CartScreen() {
               style={styles.stepButton}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                updateQuantity(line.item.id, line.quantity + 1);
+                const result = updateQuantity(line.item.id, line.quantity + 1);
+                if (!result.ok && result.message) {
+                  Alert.alert("Cannot update", result.message);
+                }
               }}
             >
               <Ionicons name="add" size={18} color="#111111" />

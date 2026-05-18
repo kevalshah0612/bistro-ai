@@ -1,4 +1,6 @@
 import { prisma } from "../db/prisma";
+import { getMenuItems } from "./menuService";
+import { validateOrderItems } from "./cartValidation";
 
 type CreateOrderItemInput = {
   itemId: string;
@@ -48,6 +50,9 @@ export async function listOrdersResponse(limit = 25) {
 }
 
 export async function createOrder(items: CreateOrderItemInput[]) {
+  const menu = await getMenuItems();
+  validateOrderItems(items, menu);
+
   const menuItems = await prisma.menuItem.findMany({
     where: {
       id: { in: items.map((item) => item.itemId) },
@@ -56,11 +61,6 @@ export async function createOrder(items: CreateOrderItemInput[]) {
   });
 
   const menuItemById = new Map(menuItems.map((item) => [item.id, item]));
-  const missingItem = items.find((item) => !menuItemById.has(item.itemId));
-
-  if (missingItem) {
-    throw new Error(`Menu item is unavailable or does not exist: ${missingItem.itemId}`);
-  }
 
   const total = Math.round(
     items.reduce((sum, item) => {

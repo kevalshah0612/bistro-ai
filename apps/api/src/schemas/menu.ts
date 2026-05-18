@@ -16,8 +16,8 @@ export type MenuItem = z.infer<typeof MenuItemSchema>;
 
 export const CartActionSchema = z.object({
   type: z.enum(["ADD", "REMOVE", "UPDATE_QTY"]),
-  itemId: z.string(),
-  quantity: z.number().int().min(0),
+  itemId: z.string().min(1),
+  quantity: z.number().int().min(0).max(99),
 });
 
 export type CartAction = z.infer<typeof CartActionSchema>;

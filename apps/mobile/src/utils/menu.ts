@@ -14,3 +14,5 @@ export const CHAT_SUGGESTIONS = [
   "Show me vegetarian mains",
   "Remove everything from my cart",
 ] as const;
+
+export const MEAL_BUDGET_OPTIONS = [20, 25, 30] as const;

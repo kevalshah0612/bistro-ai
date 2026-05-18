@@ -83,20 +83,41 @@ export function buildParseCacheKey(message: string, menuItems: Parameters<typeof
   return hashKey(`parse|${menuFingerprint(menuItems)}|${message.trim().toLowerCase()}`);
 }
 
+function cartFingerprint(cart: Array<{ itemId: string; quantity: number }>) {
+  return cart
+    .map((line) => `${line.itemId}:${line.quantity}`)
+    .sort()
+    .join("|");
+}
+
 export function buildChatCacheKey(
   messages: Array<{ role: string; content: string }>,
   cart: Array<{ itemId: string; quantity: number }>,
-  menuItems: Parameters<typeof menuFingerprint>[0]
+  menuItems: Parameters<typeof menuFingerprint>[0],
+  dietaryPreferences = ""
 ) {
   const payload = JSON.stringify({
     menu: menuFingerprint(menuItems),
-    cart: cart
-      .map((line) => `${line.itemId}:${line.quantity}`)
-      .sort()
-      .join("|"),
+    cart: cartFingerprint(cart),
+    dietary: dietaryPreferences.trim().toLowerCase(),
     messages: messages.map((m) => `${m.role}:${m.content.trim().toLowerCase()}`),
   });
   return hashKey(`chat|${payload}`);
+}
+
+export function buildMealPlanCacheKey(
+  budget: number,
+  cart: Array<{ itemId: string; quantity: number }>,
+  menuItems: Parameters<typeof menuFingerprint>[0],
+  dietaryPreferences = ""
+) {
+  const payload = JSON.stringify({
+    menu: menuFingerprint(menuItems),
+    cart: cartFingerprint(cart),
+    budget,
+    dietary: dietaryPreferences.trim().toLowerCase(),
+  });
+  return hashKey(`meal-plan|${payload}`);
 }
 
 export function getCached<T>(key: string, options?: { allowStale?: boolean }): T | null {

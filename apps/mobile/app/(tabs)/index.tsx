@@ -3,6 +3,7 @@ import * as Haptics from "expo-haptics";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Pressable,
   RefreshControl,
@@ -12,8 +13,9 @@ import {
   View,
 } from "react-native";
 import { Screen } from "../../src/components/Screen";
-import { fetchMenu } from "../../src/api/client";
+import { useSyncCartOnFocus } from "../../src/hooks/useSyncCartOnFocus";
 import { useCartStore } from "../../src/store/cartStore";
+import { useMenuStore } from "../../src/store/menuStore";
 import { MenuItem } from "../../src/types";
 
 const categories = ["All", "Starters", "Mains", "Sides", "Drinks", "Desserts"];
@@ -33,12 +35,17 @@ export default function MenuScreen() {
   const [activeCategory, setActiveCategory] = useState("All");
   const { addItem, updateQuantity, items } = useCartStore();
 
+  useSyncCartOnFocus();
+
   const loadMenu = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
     else setLoading(true);
     setError(null);
     try {
-      setMenu(await fetchMenu());
+      const items = refresh
+        ? await useMenuStore.getState().refresh()
+        : await useMenuStore.getState().ensureLoaded();
+      setMenu(items);
     } catch {
       setError("The kitchen menu did not load. Please try again.");
     } finally {
@@ -66,8 +73,9 @@ export default function MenuScreen() {
 
   const renderItem = ({ item }: { item: MenuItem }) => {
     const quantity = quantityFor(item.id);
+    const soldOut = !item.available;
     return (
-      <View style={[styles.card, item.tags.includes("popular") && styles.popularCard]}>
+      <View style={[styles.card, item.tags.includes("popular") && styles.popularCard, soldOut && styles.soldOutCard]}>
         <View style={styles.itemInfo}>
           <Text style={styles.itemName}>{item.name}</Text>
           <Text style={styles.itemDescription} numberOfLines={2}>
@@ -86,14 +94,21 @@ export default function MenuScreen() {
         </View>
         <View style={styles.itemAction}>
           <Text style={styles.price}>${item.price.toFixed(2)}</Text>
-          {quantity === 0 ? (
+          {soldOut ? (
+            <View style={styles.soldOutPill}>
+              <Text style={styles.soldOutText}>Unavailable</Text>
+            </View>
+          ) : quantity === 0 ? (
             <Pressable
               accessibilityLabel={`Add ${item.name}`}
               accessibilityRole="button"
               style={styles.roundButton}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                addItem(item, 1);
+                const result = addItem(item, 1);
+                if (!result.ok && result.message) {
+                  Alert.alert("Cannot add", result.message);
+                }
               }}
             >
               <Ionicons name="add" size={24} color="#111111" />
@@ -106,7 +121,10 @@ export default function MenuScreen() {
                 style={styles.stepButton}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  updateQuantity(item.id, quantity - 1);
+                  const result = updateQuantity(item.id, quantity - 1);
+                  if (!result.ok && result.message) {
+                    Alert.alert("Cannot update", result.message);
+                  }
                 }}
               >
                 <Ionicons name="remove" size={18} color="#111111" />
@@ -118,7 +136,10 @@ export default function MenuScreen() {
                 style={styles.stepButton}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  addItem(item, 1);
+                  const result = addItem(item, 1);
+                  if (!result.ok && result.message) {
+                    Alert.alert("Cannot add", result.message);
+                  }
                 }}
               >
                 <Ionicons name="add" size={18} color="#111111" />
@@ -272,6 +293,20 @@ const styles = StyleSheet.create({
   popularCard: {
     borderLeftColor: "#F5A623",
     borderLeftWidth: 3,
+  },
+  soldOutCard: {
+    opacity: 0.55,
+  },
+  soldOutPill: {
+    backgroundColor: "#3a2a2a",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  soldOutText: {
+    color: "#888888",
+    fontSize: 12,
+    fontWeight: "700",
   },
   price: {
     color: "#F5A623",
