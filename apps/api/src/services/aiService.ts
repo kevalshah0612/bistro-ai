@@ -1,7 +1,16 @@
 import { CartAction, CartActionSchema, MenuItem } from "../schemas/menu";
+import {
+  buildChatCacheKey,
+  buildParseCacheKey,
+  getCached,
+  menuFingerprint,
+  setCached,
+} from "./aiCache";
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
-const MODEL = "claude-sonnet-4-20250514";
+const MODEL = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6";
+const REQUEST_TIMEOUT_MS = Number(process.env.AI_REQUEST_TIMEOUT_MS ?? 60000);
+const MAX_RETRIES = Number(process.env.AI_MAX_RETRIES ?? 3);
 
 type AnthropicTextBlock = {
   type: "text";
@@ -12,46 +21,99 @@ type AnthropicResponse = {
   content: AnthropicTextBlock[];
 };
 
+export type ParseOrderResult = { actions: CartAction[]; reply: string };
+export type ChatTurnResult = { reply: string; actions: CartAction[] };
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function formatNetworkError(error: unknown) {
+  if (error instanceof Error) {
+    const withCause = error as Error & { cause?: unknown };
+    const cause =
+      withCause.cause instanceof Error
+        ? withCause.cause.message
+        : typeof withCause.cause === "string"
+          ? withCause.cause
+          : "";
+    return cause ? `${error.message} (${cause})` : error.message;
+  }
+  return String(error);
+}
+
 async function callAnthropic(
   system: string,
   messages: Array<{ role: "user" | "assistant"; content: string }>
 ): Promise<string> {
-  const response = await fetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: {
-      "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 1000,
-      system,
-      messages,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Anthropic request failed: ${response.status} ${errorText}`);
+  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error("ANTHROPIC_API_KEY is not configured in apps/api/.env");
   }
 
-  const data = (await response.json()) as AnthropicResponse;
-  return data.content
-    .filter((block) => block.type === "text")
-    .map((block) => block.text)
-    .join("\n")
-    .trim();
+  let lastError: Error | undefined;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
+    try {
+      const response = await fetch(ANTHROPIC_URL, {
+        method: "POST",
+        headers: {
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          max_tokens: 1000,
+          system,
+          messages,
+        }),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Anthropic request failed: ${response.status} ${errorText}`);
+      }
+
+      const data = (await response.json()) as AnthropicResponse;
+      return data.content
+        .filter((block) => block.type === "text")
+        .map((block) => block.text)
+        .join("\n")
+        .trim();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (attempt < MAX_RETRIES) {
+        await sleep(400 * attempt);
+      }
+    }
+  }
+
+  throw new Error(
+    `Anthropic network error: ${formatNetworkError(lastError)}. Check your internet connection, firewall/VPN, and API key.`
+  );
 }
 
 function sanitizeMessage(value: string) {
   return value.trim().slice(0, 500);
 }
 
-export async function parseOrderIntent(
+function parseCartActionsFromReply(replyText: string): CartAction[] {
+  const actionMatch = replyText.match(/<cart_action>([\s\S]*?)<\/cart_action>/);
+  if (!actionMatch?.[1]) return [];
+  const parsed = JSON.parse(actionMatch[1]) as { actions?: CartAction[] };
+  return CartActionSchema.array().parse(parsed.actions ?? []);
+}
+
+function cleanChatReply(replyText: string) {
+  return replyText.replace(/<cart_action>[\s\S]*?<\/cart_action>/, "").trim();
+}
+
+async function callParseOrderIntent(
   userMessage: string,
   menuItems: MenuItem[]
-): Promise<{ actions: CartAction[]; reply: string }> {
+): Promise<ParseOrderResult> {
   const system = `You are an order parsing assistant for The Intelligent Bistro restaurant.
 You will receive a customer's natural language order request and a list of available menu items.
 
@@ -96,11 +158,11 @@ ${JSON.stringify(menuItems, null, 2)}`;
   }
 }
 
-export async function runChatTurn(
+async function callChatTurn(
   messages: Array<{ role: "user" | "assistant"; content: string }>,
   cart: Array<{ itemId: string; name: string; quantity: number; price: number }>,
   menuItems: MenuItem[]
-): Promise<{ reply: string; actions: CartAction[] }> {
+): Promise<ChatTurnResult> {
   const system = `You are an AI waiter at The Intelligent Bistro, an upscale bistro restaurant.
 You are warm, knowledgeable about the menu, and helpful.
 
@@ -126,17 +188,67 @@ ${JSON.stringify(menuItems, null, 2)}`;
     content: sanitizeMessage(message.content),
   }));
   const replyText = await callAnthropic(system, safeMessages);
-  const actionMatch = replyText.match(/<cart_action>([\s\S]*?)<\/cart_action>/);
-  let actions: CartAction[] = [];
+  const actions = parseCartActionsFromReply(replyText);
+  return { reply: cleanChatReply(replyText), actions };
+}
 
-  if (actionMatch?.[1]) {
-    const parsed = JSON.parse(actionMatch[1]) as { actions?: CartAction[] };
-    actions = CartActionSchema.array().parse(parsed.actions ?? []);
+export async function parseOrderIntent(
+  userMessage: string,
+  menuItems: MenuItem[],
+  options?: { skipCache?: boolean }
+): Promise<ParseOrderResult & { cacheHit: boolean }> {
+  const cacheKey = buildParseCacheKey(userMessage, menuItems);
+  if (!options?.skipCache) {
+    const cached = getCached<ParseOrderResult>(cacheKey);
+    if (cached) {
+      console.log("[ai-cache] HIT parse", cacheKey.slice(0, 12));
+      return { ...cached, cacheHit: true };
+    }
   }
 
-  const cleanReply = replyText
-    .replace(/<cart_action>[\s\S]*?<\/cart_action>/, "")
-    .trim();
+  try {
+    const result = await callParseOrderIntent(userMessage, menuItems);
+    setCached(cacheKey, result);
+    return { ...result, cacheHit: false };
+  } catch (error) {
+    const stale = getCached<ParseOrderResult>(cacheKey, { allowStale: true });
+    if (stale) {
+      console.warn("[ai-cache] STALE parse fallback after API error");
+      return { ...stale, cacheHit: true };
+    }
+    throw error;
+  }
+}
 
-  return { reply: cleanReply, actions };
+export async function runChatTurn(
+  messages: Array<{ role: "user" | "assistant"; content: string }>,
+  cart: Array<{ itemId: string; name: string; quantity: number; price: number }>,
+  menuItems: MenuItem[],
+  options?: { skipCache?: boolean }
+): Promise<ChatTurnResult & { cacheHit: boolean }> {
+  const cacheKey = buildChatCacheKey(messages, cart, menuItems);
+  if (!options?.skipCache) {
+    const cached = getCached<ChatTurnResult>(cacheKey);
+    if (cached) {
+      console.log("[ai-cache] HIT chat", cacheKey.slice(0, 12));
+      return { ...cached, cacheHit: true };
+    }
+  }
+
+  try {
+    const result = await callChatTurn(messages, cart, menuItems);
+    setCached(cacheKey, result);
+    return { ...result, cacheHit: false };
+  } catch (error) {
+    const stale = getCached<ChatTurnResult>(cacheKey, { allowStale: true });
+    if (stale) {
+      console.warn("[ai-cache] STALE chat fallback after API error");
+      return { ...stale, cacheHit: true };
+    }
+    throw error;
+  }
+}
+
+export function getAiCacheMenuFingerprint(menuItems: MenuItem[]) {
+  return menuFingerprint(menuItems);
 }

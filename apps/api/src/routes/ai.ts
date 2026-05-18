@@ -43,7 +43,8 @@ router.post("/parse", async (req, res) => {
     const menuItems = await getMenuItems();
     const result = await parseOrderIntent(message, menuItems);
     logAiRequest("/api/ai/parse", startedAt, message.length);
-    res.json(result);
+    res.setHeader("X-AI-Cache", result.cacheHit ? "HIT" : "MISS");
+    res.json({ actions: result.actions, reply: result.reply, cached: result.cacheHit });
   } catch (err) {
     if (err instanceof z.ZodError) {
       res.status(400).json({ error: "Invalid request", details: err.errors });
@@ -67,7 +68,8 @@ router.post("/chat", async (req, res) => {
     const menuItems = await getMenuItems();
     const result = await runChatTurn(messages, parsed.cart, menuItems);
     logAiRequest("/api/ai/chat", startedAt, lastUserMessage?.content.length ?? 0);
-    res.json(result);
+    res.setHeader("X-AI-Cache", result.cacheHit ? "HIT" : "MISS");
+    res.json({ reply: result.reply, actions: result.actions, cached: result.cacheHit });
   } catch (err) {
     if (err instanceof z.ZodError) {
       res.status(400).json({ error: "Invalid request", details: err.errors });
