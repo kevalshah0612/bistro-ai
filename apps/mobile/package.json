@@ -4,11 +4,11 @@
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
-    "start": "cross-env EXPO_ROUTER_APP_ROOT=app EXPO_ROUTER_IMPORT_MODE=sync expo start --offline --clear",
-    "start:online": "cross-env EXPO_ROUTER_APP_ROOT=app EXPO_ROUTER_IMPORT_MODE=sync expo start",
-    "android": "cross-env EXPO_ROUTER_APP_ROOT=app EXPO_ROUTER_IMPORT_MODE=sync expo start --offline --android",
-    "ios": "cross-env EXPO_ROUTER_APP_ROOT=app EXPO_ROUTER_IMPORT_MODE=sync expo start --offline --ios",
-    "web": "cross-env EXPO_ROUTER_APP_ROOT=app EXPO_ROUTER_IMPORT_MODE=sync expo start --offline --web",
+    "start": "expo start --offline --clear",
+    "start:online": "expo start --clear",
+    "android": "expo start --offline --android",
+    "ios": "expo start --offline --ios",
+    "web": "expo start --offline --web",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
