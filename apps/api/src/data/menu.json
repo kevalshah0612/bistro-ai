@@ -45,6 +45,33 @@
     "available": true
   },
   {
+    "id": "burrata-caprese",
+    "name": "Burrata Caprese",
+    "description": "Creamy burrata with heirloom tomatoes, basil oil, and aged balsamic glaze.",
+    "price": 13.5,
+    "category": "Starters",
+    "tags": ["vegetarian", "popular"],
+    "available": true
+  },
+  {
+    "id": "duck-confit-bites",
+    "name": "Duck Confit Bites",
+    "description": "Crisp duck leg confit with cherry gastrique and pickled shallots.",
+    "price": 16,
+    "category": "Starters",
+    "tags": ["popular"],
+    "available": true
+  },
+  {
+    "id": "roasted-beet-tartare",
+    "name": "Roasted Beet Tartare",
+    "description": "Smoky beets with whipped goat cheese, pistachio crumble, and herb oil.",
+    "price": 12.5,
+    "category": "Starters",
+    "tags": ["vegetarian", "vegan", "gluten-free"],
+    "available": true
+  },
+  {
     "id": "bistro-burger",
     "name": "Bistro Burger",
     "description": "Dry-aged beef patty with gruyere, caramelized onions, bistro sauce, and brioche.",
@@ -87,6 +114,33 @@
     "price": 28,
     "category": "Mains",
     "tags": ["popular"],
+    "available": true
+  },
+  {
+    "id": "herb-roasted-chicken",
+    "name": "Herb Roasted Chicken",
+    "description": "Half chicken with lemon thyme jus, roasted carrots, and fingerling potatoes.",
+    "price": 24,
+    "category": "Mains",
+    "tags": ["gluten-free", "popular"],
+    "available": true
+  },
+  {
+    "id": "lobster-linguine",
+    "name": "Lobster Linguine",
+    "description": "Fresh linguine tossed with lobster, garlic, chili, and parsley butter.",
+    "price": 32,
+    "category": "Mains",
+    "tags": ["popular"],
+    "available": true
+  },
+  {
+    "id": "eggplant-parmesan",
+    "name": "Eggplant Parmesan",
+    "description": "Crisp eggplant layered with marinara, mozzarella, and basil.",
+    "price": 19,
+    "category": "Mains",
+    "tags": ["vegetarian"],
     "available": true
   },
   {
@@ -135,6 +189,24 @@
     "available": true
   },
   {
+    "id": "truffle-parmesan-fries",
+    "name": "Truffle Parmesan Fries",
+    "description": "Shoestring fries with truffle oil, parmesan, and fresh herbs.",
+    "price": 9.5,
+    "category": "Sides",
+    "tags": ["vegetarian", "popular"],
+    "available": true
+  },
+  {
+    "id": "grilled-asparagus",
+    "name": "Grilled Asparagus",
+    "description": "Charred asparagus with hollandaise and shaved pecorino.",
+    "price": 9.5,
+    "category": "Sides",
+    "tags": ["vegetarian", "gluten-free"],
+    "available": true
+  },
+  {
     "id": "still-water",
     "name": "Still Water",
     "description": "Chilled bottled still water.",
@@ -177,6 +249,42 @@
     "price": 4.5,
     "category": "Drinks",
     "tags": ["vegetarian", "vegan", "gluten-free"],
+    "available": true
+  },
+  {
+    "id": "house-cold-brew",
+    "name": "House Cold Brew",
+    "description": "Slow-steeped cold brew with optional oat milk.",
+    "price": 5.5,
+    "category": "Drinks",
+    "tags": ["vegetarian", "vegan"],
+    "available": true
+  },
+  {
+    "id": "ginger-mint-spritzer",
+    "name": "Ginger Mint Spritzer",
+    "description": "Sparkling water with fresh ginger, mint, and lime.",
+    "price": 5,
+    "category": "Drinks",
+    "tags": ["vegetarian", "vegan", "gluten-free", "popular"],
+    "available": true
+  },
+  {
+    "id": "dark-chocolate-pudding",
+    "name": "Dark Chocolate Pudding",
+    "description": "Silky chocolate pudding with sea salt, whipped cream, and cocoa nib.",
+    "price": 8,
+    "category": "Desserts",
+    "tags": ["vegetarian", "popular"],
+    "available": true
+  },
+  {
+    "id": "creme-brulee",
+    "name": "Crème Brûlée",
+    "description": "Vanilla bean custard with caramelized sugar and fresh berries.",
+    "price": 9,
+    "category": "Desserts",
+    "tags": ["vegetarian", "gluten-free"],
     "available": true
   }
 ]

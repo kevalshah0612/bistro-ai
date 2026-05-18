@@ -5,6 +5,48 @@ type CreateOrderItemInput = {
   quantity: number;
 };
 
+type OrderWithItems = Awaited<ReturnType<typeof listOrders>>[number];
+
+function mapOrder(order: OrderWithItems) {
+  return {
+    id: order.id,
+    status: order.status,
+    total: order.total,
+    createdAt: order.createdAt,
+    items: order.items.map((item) => ({
+      id: item.id,
+      itemId: item.menuItemId,
+      name: item.menuItem.name,
+      quantity: item.quantity,
+      priceAtOrder: item.priceAtOrder,
+      category: item.menuItem.category.name,
+    })),
+  };
+}
+
+export async function listOrders(limit = 25) {
+  return prisma.order.findMany({
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    include: {
+      items: {
+        include: {
+          menuItem: {
+            include: {
+              category: { select: { name: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+export async function listOrdersResponse(limit = 25) {
+  const orders = await listOrders(limit);
+  return orders.map(mapOrder);
+}
+
 export async function createOrder(items: CreateOrderItemInput[]) {
   const menuItems = await prisma.menuItem.findMany({
     where: {
@@ -27,7 +69,7 @@ export async function createOrder(items: CreateOrderItemInput[]) {
     }, 0) * 100
   ) / 100;
 
-  return prisma.order.create({
+  const order = await prisma.order.create({
     data: {
       total,
       items: {
@@ -56,4 +98,6 @@ export async function createOrder(items: CreateOrderItemInput[]) {
       },
     },
   });
+
+  return mapOrder(order);
 }

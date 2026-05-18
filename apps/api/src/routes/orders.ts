@@ -1,8 +1,18 @@
 import { Router } from "express";
 import { z } from "zod";
-import { createOrder } from "../services/orderService";
+import { createOrder, listOrdersResponse } from "../services/orderService";
 
 const router = Router();
+
+router.get("/", async (_req, res) => {
+  try {
+    const orders = await listOrdersResponse();
+    res.json(orders);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Could not load orders";
+    res.status(500).json({ error: "Order service error", message });
+  }
+});
 
 const createOrderSchema = z.object({
   items: z
@@ -19,20 +29,7 @@ router.post("/", async (req, res) => {
   try {
     const parsed = createOrderSchema.parse(req.body);
     const order = await createOrder(parsed.items);
-    res.status(201).json({
-      id: order.id,
-      status: order.status,
-      total: order.total,
-      createdAt: order.createdAt,
-      items: order.items.map((item) => ({
-        id: item.id,
-        itemId: item.menuItemId,
-        name: item.menuItem.name,
-        quantity: item.quantity,
-        priceAtOrder: item.priceAtOrder,
-        category: item.menuItem.category.name,
-      })),
-    });
+    res.status(201).json(order);
   } catch (err) {
     if (err instanceof z.ZodError) {
       res.status(400).json({ error: "Invalid request", details: err.errors });
