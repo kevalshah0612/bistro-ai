@@ -17,5 +17,40 @@ services:
       timeout: 5s
       retries: 10
 
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: intelligent-bistro-api
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    env_file:
+      - .env.docker
+    environment:
+      PORT: 3001
+      # Always use the Postgres service in this stack (ignore DATABASE_URL in .env.docker).
+      DATABASE_URL: postgresql://bistro:bistro@postgres:5432/intelligent_bistro?schema=public
+    volumes:
+      - bistro-ai-cache:/app/apps/api/.cache
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    profiles: ["demo"]
+    build:
+      context: .
+      dockerfile: apps/mobile/Dockerfile
+      args:
+        EXPO_PUBLIC_API_URL: http://localhost:3001/api
+    container_name: intelligent-bistro-web
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
 volumes:
   bistro-postgres-data:
+  bistro-ai-cache:
