@@ -11,11 +11,12 @@ import {
   Text,
   View,
 } from "react-native";
+import { Screen } from "../../src/components/Screen";
 import { fetchMenu } from "../../src/api/client";
 import { useCartStore } from "../../src/store/cartStore";
 import { MenuItem } from "../../src/types";
 
-const categories = ["All", "Starters", "Mains", "Sides", "Drinks"];
+const categories = ["All", "Starters", "Mains", "Sides", "Drinks", "Desserts"];
 
 function tagColors(tag: string) {
   if (tag === "spicy") return { bg: "#E05252", text: "#2b0b0b" };
@@ -131,25 +132,25 @@ export default function MenuScreen() {
 
   if (loading) {
     return (
-      <View style={styles.centered}>
+      <Screen style={styles.centered}>
         <ActivityIndicator color="#F5A623" size="large" />
-      </View>
+      </Screen>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.centered}>
+      <Screen style={styles.centered}>
         <Text style={styles.errorText}>{error}</Text>
         <Pressable accessibilityRole="button" style={styles.retryButton} onPress={() => loadMenu()}>
           <Text style={styles.retryText}>Try Again</Text>
         </Pressable>
-      </View>
+      </Screen>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <Screen>
       <View style={styles.header}>
         <Text style={styles.title}>The Intelligent Bistro</Text>
         <Text style={styles.subtitle}>Tap or ask the AI to order</Text>
@@ -189,19 +190,19 @@ export default function MenuScreen() {
           />
         }
       />
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
     backgroundColor: "#1e1e1e",
-    borderRadius: 12,
+    borderRadius: 14,
     flexDirection: "row",
-    marginHorizontal: 12,
-    marginVertical: 6,
-    minHeight: 132,
-    padding: 14,
+    marginHorizontal: 14,
+    marginVertical: 8,
+    minHeight: 148,
+    padding: 16,
   },
   categoryActive: {
     backgroundColor: "#F5A623",
@@ -228,14 +229,8 @@ const styles = StyleSheet.create({
   },
   centered: {
     alignItems: "center",
-    backgroundColor: "#111111",
-    flex: 1,
     justifyContent: "center",
     padding: 24,
-  },
-  container: {
-    backgroundColor: "#111111",
-    flex: 1,
   },
   errorText: {
     color: "#F0EDE8",
@@ -244,11 +239,11 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   header: {
-    backgroundColor: "#111111",
     borderBottomColor: "#2a2a2a",
     borderBottomWidth: 1,
+    paddingBottom: 16,
     paddingHorizontal: 16,
-    paddingVertical: 18,
+    paddingTop: 4,
   },
   itemAction: {
     alignItems: "flex-end",
@@ -257,8 +252,8 @@ const styles = StyleSheet.create({
   },
   itemDescription: {
     color: "#888888",
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 14,
+    lineHeight: 20,
     marginTop: 6,
   },
   itemInfo: {
@@ -267,11 +262,12 @@ const styles = StyleSheet.create({
   },
   itemName: {
     color: "#F0EDE8",
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "800",
   },
   listContent: {
-    paddingBottom: 18,
+    paddingBottom: 24,
+    paddingTop: 4,
   },
   popularCard: {
     borderLeftColor: "#F5A623",
@@ -279,7 +275,7 @@ const styles = StyleSheet.create({
   },
   price: {
     color: "#F5A623",
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "800",
   },
   quantity: {
@@ -343,7 +339,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: "#F0EDE8",
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: "900",
   },
 });

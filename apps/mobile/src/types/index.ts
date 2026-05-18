@@ -25,6 +25,7 @@ export type ChatMessage = {
   content: string;
   timestamp: Date;
   actions?: CartAction[];
+  cached?: boolean;
 };
 
 export type PlacedOrder = {

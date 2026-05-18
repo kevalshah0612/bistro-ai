@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { useEffect, useRef } from "react";
-import { Animated, StyleSheet, View } from "react-native";
+import { Animated, Platform, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCartStore } from "../../src/store/cartStore";
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -40,6 +41,10 @@ function tabIcon(outline: IconName, filled: IconName) {
 }
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+  const tabBarPaddingBottom = Math.max(insets.bottom, Platform.OS === "android" ? 12 : 8);
+  const tabBarHeight = 52 + tabBarPaddingBottom;
+
   return (
     <Tabs
       screenOptions={{
@@ -50,8 +55,14 @@ export default function TabsLayout() {
           backgroundColor: "#111111",
           borderTopColor: "#2a2a2a",
           borderTopWidth: 1,
-          height: 60,
-          paddingBottom: 8,
+          height: tabBarHeight,
+          paddingBottom: tabBarPaddingBottom,
+          paddingTop: 6,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: "600",
+          marginBottom: Platform.OS === "android" ? 2 : 0,
         },
       }}
     >
