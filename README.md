@@ -77,13 +77,12 @@ First build can take several minutes (Expo web export + nginx). Use F12 → devi
 ### 4. Android / Expo Go (Docker API + host Expo)
 
 1. `npm run docker:up`
-2. `ipconfig` → note your PC **IPv4** (e.g. `192.168.1.174`)
-3. `apps/mobile/.env`:
+2. Find your development machine’s **LAN hostname or address** on the same network as the phone (e.g. `ipconfig` on Windows, `ip addr` on Linux). Do not commit this value to git.
+3. `apps/mobile/.env` — point the app at the API on your machine (not `localhost`; on a physical device, `localhost` is the phone itself):
    ```env
-   EXPO_PUBLIC_API_URL=http://192.168.1.174:3001/api
+   EXPO_PUBLIC_API_URL=http://<your-dev-machine-host>:3001/api
    ```
-   (`localhost` on a physical phone points to the phone, not your PC.)
-4. Same Wi‑Fi on phone and PC; allow port **3001** in Windows Firewall if needed.
+4. Phone and PC on the same Wi‑Fi; allow inbound port **3001** in the host firewall if needed.
 5. `npm run dev:mobile` → scan QR with **[Expo Go](https://expo.dev/go)** (SDK 54)
 
 Press **`w`** in the Expo terminal to open web locally (optional; uses host Expo, not `docker:demo`).
@@ -123,6 +122,54 @@ docker-compose.yml
 .env.docker.example  →  copy to .env.docker for Docker
 ```
 
+## Code map
+
+High-level flow: **mobile screens** → **Zustand stores** → **`src/api/client.ts`** → **Express routes** → **services** → **Postgres / Anthropic**.
+
+### Backend (`apps/api`)
+
+| File | Role |
+| --- | --- |
+| `src/index.ts` | Express entry: middleware, `/health`, route mounts, error handler |
+| `src/routes/menu.ts` | `GET /api/menu`, `GET /api/menu/:category` |
+| `src/routes/orders.ts` | `GET` / `POST /api/orders` |
+| `src/routes/ai.ts` | `POST /api/ai/parse`, `POST /api/ai/chat` (Zod validation, cache headers) |
+| `src/services/menuService.ts` | Menu reads from Postgres |
+| `src/services/orderService.ts` | Create orders, list recent orders |
+| `src/services/aiService.ts` | Anthropic calls, prompts, JSON cart actions |
+| `src/services/aiCache.ts` | Server-side AI response cache (disk + memory) |
+| `src/schemas/menu.ts` | Shared types: `MenuItem`, `CartAction` (`ADD` / `REMOVE` / `UPDATE_QTY`) |
+| `src/db/prisma.ts` | Prisma client |
+| `src/data/menu.json` | Seed catalog |
+| `prisma/schema.prisma` | `Category`, `MenuItem`, `Order`, `OrderItem` |
+| `prisma/seed.ts` | Loads `menu.json` into the database |
+
+### Mobile (`apps/mobile`)
+
+| File | Role |
+| --- | --- |
+| `app/(tabs)/index.tsx` | **Menu** tab: categories, tags, quantity controls |
+| `app/(tabs)/cart.tsx` | **Cart** tab: checkout, tax estimate, recent orders |
+| `app/(tabs)/chat.tsx` | **AI Order** tab: chat UI, applies AI cart actions |
+| `app/(tabs)/_layout.tsx` | Bottom tabs and cart badge |
+| `src/store/cartStore.ts` | Cart state and `applyActions` from AI |
+| `src/store/chatStore.ts` | Chat messages and loading |
+| `src/store/ordersStore.ts` | Order history from API |
+| `src/api/client.ts` | HTTP client: menu, orders, AI chat |
+| `src/api/aiClientCache.ts` | In-memory AI cache per session |
+| `src/types/index.ts` | Shared TypeScript types |
+| `src/utils/menu.ts` | Formatting, suggestions, popular items |
+| `src/components/Screen.tsx` | Shared screen wrapper |
+| `src/components/OrderStatusBadge.tsx` | Order status display |
+
+### Typical flows
+
+- **Browse & add:** Menu tab → `fetchMenu` → `cartStore.addItem`
+- **Checkout:** Cart tab → `placeOrder` → Postgres → recent orders list
+- **AI order:** Chat tab → `sendChatMessage` → `aiService` → `cartStore.applyActions`
+
+The **chat** endpoint powers the AI Order tab. **`/api/ai/parse`** is available for one-shot parsing; the mobile client exposes it but the current UI uses chat only.
+
 ## Environment variables
 
 ### Docker (`.env.docker` at repo root)
@@ -145,8 +192,8 @@ Same AI/cache/CORS vars as above, plus `PORT`, `DATABASE_URL` (localhost Postgre
 
 | Variable | When |
 | --- | --- |
-| `EXPO_PUBLIC_API_URL=http://localhost:3001/api` | Emulator / simulator / Expo web on same PC |
-| `EXPO_PUBLIC_API_URL=http://192.168.x.x:3001/api` | Physical device + Docker or local API |
+| `EXPO_PUBLIC_API_URL=http://localhost:3001/api` | Emulator, simulator, or Expo web on the same machine as the API |
+| `EXPO_PUBLIC_API_URL=http://<your-dev-machine-host>:3001/api` | Physical device — use your machine’s LAN hostname or address (see [Expo Go setup](#4-android--expo-go-docker-api--host-expo)); keep out of version control |
 
 ## Scripts
 
@@ -202,27 +249,21 @@ In the app: load menu → add items → AI chat → place order → check **Rece
 | --- | --- |
 | No QR after `docker:up` | Expected — run `npm run dev:mobile` or use `docker:demo` for browser |
 | `ANTHROPIC_API_KEY` warning / AI 500 in Docker | Key must be in **`.env.docker`**, then `npm run docker:down` && `npm run docker:up` |
-| Phone can’t reach API | Use PC LAN IP in `EXPO_PUBLIC_API_URL`, same Wi‑Fi, firewall port 3001 |
+| Phone can’t reach API | Set `EXPO_PUBLIC_API_URL` to your dev machine’s LAN host (not `localhost`), same Wi‑Fi, firewall port 3001 |
 | Expo `fetch failed` on start | Project uses `expo start --offline`; use `npm run start:online --workspace=apps/mobile` if online checks needed |
 | Empty / “Welcome to Expo” | Run `npm run dev:mobile` from **repo root** |
 | Port 8081 in use | Press `y` for another port or stop other Metro |
 | AI errors (local dev) | Valid key in `apps/api/.env`, model `claude-sonnet-4-6`, restart API |
 
-## Code map
-
-**API:** `index.ts`, `routes/menu|orders|ai.ts`, `services/aiService.ts`, `aiCache.ts`, `orderService.ts`, seed `data/menu.json`
-
-**Mobile:** `app/(tabs)/index|cart|chat.tsx`, `src/store/cartStore.ts`, `ordersStore.ts`, `src/api/client.ts`
-
 ## Demo recording (short)
 
-**Phone:** `docker:up` → LAN IP in `apps/mobile/.env` → `dev:mobile` → scan QR → record (Game Bar / OBS).
+**Phone:** `docker:up` → set `EXPO_PUBLIC_API_URL` in `apps/mobile/.env` (local only) → `dev:mobile` → scan QR → record.
 
 **Browser:** `docker:demo` → http://localhost:8080 → record window.
 
-**Loop script (~60s):** Menu → AI suggestion → Cart checkout → Recent orders.
+**Loop (~60s):** Menu → AI suggestion → Cart checkout → Recent orders.
 
-Pre-flight: `docker compose ps` healthy, `/health` ok, menu loads, AI responds, notifications off.
+Pre-flight: containers healthy, `/health` ok, menu loads, AI responds.
 
 ## Prerequisites
 
