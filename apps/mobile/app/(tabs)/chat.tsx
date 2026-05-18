@@ -79,7 +79,6 @@ export default function ChatScreen() {
   const inputRef = useRef<TextInput>(null);
   const { width } = useWindowDimensions();
   const { messages, isLoading, addMessage, setLoading } = useChatStore();
-  const cartItems = useCartStore((state) => state.items);
   const getTotalItems = useCartStore((state) => state.totalItems);
   const getTotalPrice = useCartStore((state) => state.totalPrice);
   const applyActions = useCartStore((state) => state.applyActions);
@@ -113,7 +112,7 @@ export default function ChatScreen() {
       addMessage({
         role: "assistant",
         content:
-          "Hi! I'm your AI waiter. Tap a suggestion below, pick a popular dish, or tell me what you'd like — I'll update your cart instantly.",
+          "Hi! I'm your AI waiter. Tap a suggestion below, pick a popular dish, or tell me what you'd like — I'll update your cart instantly. After you place an order from the Cart tab, we start fresh here.",
       });
     }
   }, [addMessage, loadMenu, messages.length]);
@@ -152,7 +151,8 @@ export default function ChatScreen() {
     try {
       const history = messages.map((m) => ({ role: m.role, content: m.content }));
       history.push({ role: "user" as const, content: trimmed });
-      const result = await sendChatMessage(history, cartItems);
+      const currentCart = useCartStore.getState().items;
+      const result = await sendChatMessage(history, currentCart);
       await applyActionsWithMenuRetry(result.actions);
       addMessage({
         role: "assistant",

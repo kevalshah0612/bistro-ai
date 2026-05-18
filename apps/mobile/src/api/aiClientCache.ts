@@ -39,3 +39,8 @@ export function getClientParseCache(message: string) {
 export function setClientParseCache(message: string, value: AiChatResult) {
   parseCache.set(message.trim().toLowerCase(), value);
 }
+
+export function clearAiClientCaches() {
+  chatCache.clear();
+  parseCache.clear();
+}

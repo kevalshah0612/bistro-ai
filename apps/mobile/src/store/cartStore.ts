@@ -65,9 +65,16 @@ export const useCartStore = create<CartStore>((set, get) => ({
     actions.forEach((action) => {
       const menuItem = menu.find((m) => m.id === action.itemId);
       if (!menuItem) return;
+      const inCart = get().items.some((i) => i.item.id === action.itemId);
       if (action.type === "ADD") get().addItem(menuItem, action.quantity);
       if (action.type === "REMOVE") get().removeItem(action.itemId);
-      if (action.type === "UPDATE_QTY") get().updateQuantity(action.itemId, action.quantity);
+      if (action.type === "UPDATE_QTY") {
+        if (!inCart && action.quantity > 0) {
+          get().addItem(menuItem, action.quantity);
+        } else {
+          get().updateQuantity(action.itemId, action.quantity);
+        }
+      }
     });
   },
 

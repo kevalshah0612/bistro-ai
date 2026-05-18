@@ -18,6 +18,7 @@ import { useCartStore } from "../../src/store/cartStore";
 import { useOrdersStore } from "../../src/store/ordersStore";
 import { CartItem, PlacedOrder } from "../../src/types";
 import { formatMoney } from "../../src/utils/menu";
+import { resetOrderingSession } from "../../src/utils/orderingSession";
 
 const TAX_RATE = 0.08875;
 
@@ -93,7 +94,7 @@ export default function CartScreen() {
         `Order #${order.id.slice(-6).toUpperCase()} is in the kitchen.\n\n${lines}\n\nTotal: ${formatMoney(order.total)}`,
         [{ text: "OK" }]
       );
-      clearCart();
+      resetOrderingSession();
     } catch {
       Alert.alert("Order not sent", "The kitchen could not receive your order. Please try again.");
     } finally {

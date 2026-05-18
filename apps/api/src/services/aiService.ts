@@ -177,6 +177,12 @@ Rules for cart actions:
 - The JSON inside <cart_action> must match: { "actions": [{ "type": "ADD"|"REMOVE"|"UPDATE_QTY", "itemId": string, "quantity": number }] }
 - After the block, continue your natural reply as normal.
 
+IMPORTANT — cart is the source of truth:
+- Only the "Current cart" JSON below reflects what is in the cart right now. Ignore items or quantities from earlier messages; they may be from an order already placed.
+- If the current cart is empty [], start fresh: use ADD (default quantity 1) for new items. Do not mention or carry over items from prior turns unless they appear in the current cart.
+- Use ADD when the customer asks to add an item (quantity is how many to add). Use UPDATE_QTY only when the item is already in the current cart and they want a specific total quantity.
+- In your reply, list only items that appear in the current cart after your actions (or will appear after ADD), not items from old conversation.
+
 Current cart:
 ${JSON.stringify(cart, null, 2)}
 
